@@ -43,6 +43,12 @@ export async function PUT(request: Request) {
     return NextResponse.json({ message: '새 비밀번호는 현재 비밀번호와 달라야 합니다.' }, { status: 400 });
   }
 
+  // 새 비밀번호 유효성 검사
+  const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])(?=.*[0-9]).{8,}$/;
+  if (!passwordRegex.test(newPassword)) {
+    return NextResponse.json({ message: '새 비밀번호는 8자 이상이어야 하며, 하나 이상의 대문자, 숫자, 특수문자를 포함해야 합니다.' }, { status: 400 });
+  }
+
   const passwordVerificationToken = uuidv4();
   users[userIndex].pendingPassword = newPassword;
   users[userIndex].passwordVerificationToken = passwordVerificationToken;

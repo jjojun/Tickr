@@ -35,14 +35,24 @@ interface User {
 
 async function readGroups(): Promise<Group[]> {
   try {
-    const data = await fs.readFile(groupsFilePath, 'utf-8');
-    return JSON.parse(data);
-  } catch (error: any) {
-    if (error.code === 'ENOENT') {
-      return [];
+    const files = await fs.readdir(process.cwd());
+    const groupFiles = files.filter(file => file.startsWith('groups_') && file.endsWith('.json'));
+
+    let allGroups: Group[] = [];
+    for (const file of groupFiles) {
+      try {
+        const filePath = path.resolve(process.cwd(), file);
+        const data = await fs.readFile(filePath, 'utf-8');
+        const groupsInFile = JSON.parse(data) as Group[];
+        allGroups = allGroups.concat(groupsInFile);
+      } catch (error) {
+        console.warn(`Error reading or parsing ${file}:`, error);
+      }
     }
-    console.error('Error reading groups.json:', error);
-    throw new Error('Failed to read groups data.');
+    return allGroups;
+  } catch (error) {
+    console.error('Error scanning for group files:', error);
+    return [];
   }
 }
 
@@ -102,7 +112,7 @@ export async function GET() {
     // Sort by totalDuration in descending order
     groupRankings.sort((a, b) => b.totalDuration - a.totalDuration);
 
-    return NextResponse.json({ ranking: groupRankings }, { status: 200 });
+    return NextResponse.json({ ranking: groupRankings }, { status: 200, revalidate: 0 });
   } catch (error) {
     console.error('Failed to get group ranking:', error);
     return NextResponse.json({ message: 'Failed to get group ranking.' }, { status: 500 });

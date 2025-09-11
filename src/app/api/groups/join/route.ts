@@ -72,7 +72,7 @@ export async function POST(request: Request) {
 
     // Verify password if the group requires one
     if (group.password && group.password !== password) {
-      return NextResponse.json({ message: 'Incorrect password for this group.' }, { status: 401 });
+      return NextResponse.json({ message: '그룹 비밀번호가 올바르지 않습니다.' }, { status: 401 });
     }
 
     // Check if user is already a member
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
 
     // Check if the group is full
     if (group.memberLimit && group.members.length >= group.memberLimit) {
-      return NextResponse.json({ message: 'This group has reached its member limit.' }, { status: 403 });
+      return NextResponse.json({ message: '이 그룹은 최대 인원수에 도달했습니다.' }, { status: 403 });
     }
 
     // Add the user to the members list
