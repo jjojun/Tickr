@@ -1,0 +1,158 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --primary-color: #007bff;
+  --primary-hover-color: #0056b3;
+  --secondary-color: #6c757d;
+  --accent-color: #28a745;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.5s forwards;
+}
+
+@media (max-width: 768px) {
+  .logo-container {
+    display: none;
+  }
+}
+
+.fullscreen-timer-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: #f9fafb; /* bg-gray-50 */
+  color: var(--foreground);
+  display: flex;
+  flex-direction: column;
+  /* Removed align-items: center and justify-content: center */
+  align-items: flex-start; /* Align items to the start (left) */
+  justify-content: center; /* Keep timer centered vertically */
+  padding: 50px; /* Add padding to the container */
+  z-index: 9999;
+}
+
+.fullscreen-timer-display {
+  font-size: 10vw; /* Even smaller responsive font size */
+  font-family: var(--font-geist-mono);
+  color: black; /* Explicitly black for visibility */
+  /* Removed text-align: center; as container is no longer centered */
+  width: 100%; /* Ensure it takes full width for centering */
+  text-align: center; /* Re-center the text within its own div */
+}
+
+.fullscreen-subject-display {
+  position: absolute; /* Position absolutely within the container */
+  top: 50px; /* Distance from top */
+  left: 50px; /* Distance from left */
+  /* Removed font-size, font-family, color, font-weight, text-align */
+  /* These styles are now handled by .subject-tag */
+}
+
+.fullscreen-exit-button {
+  position: absolute;
+  top: 30px;
+  right: 30px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  font-size: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.fullscreen-exit-button:hover {
+  background-color: var(--primary-hover-color);
+}
+
+.fullscreen-controls {
+  position: absolute;
+  bottom: 50px; /* 화면 하단에서 50px 위 */
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 20px; /* 버튼 간 간격 */
+}
+
+.fullscreen-control-button {
+  width: 80px; /* 버튼 크기 */
+  height: 80px;
+  border-radius: 50%; /* 원형 버튼 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px; /* 아이콘 크기 */
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s ease-in-out;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.fullscreen-control-button:hover {
+  transform: scale(1.05);
+}
+
+.subject-tag {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 20px;
+  background-color: var(--primary-color); /* Use primary color for background */
+  color: white; /* White text on primary background */
+  font-weight: bold;
+  font-family: var(--font-geist-sans); /* Use sans-serif for the tag text */
+  font-size: 1.2em; /* Slightly larger font for the tag */
+  
+  letter-spacing: 1px; /* Optional: add some letter spacing */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* Subtle shadow */
+  vertical-align: 2px; /* Try a positive pixel value */
+}
+
+.regular-timer-subject-container .subject-tag {
+  font-size: 0.8em; /* Smaller font size */
+  padding: 4px 8px; /* Smaller padding */
+}

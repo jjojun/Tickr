@@ -1,0 +1,16 @@
+[
+  {
+    "id": "9d9efaf2-65f7-4ae5-9a4e-3fce176d7354",
+    "name": "asdf",
+    "description": "asdf",
+    "createdAt": "2025-09-11T13:17:16.093Z",
+    "ownerId": "3",
+    "members": [
+      {
+        "userId": "3",
+        "joinedAt": "2025-09-11T13:17:16.093Z"
+      }
+    ],
+    "password": "asdf"
+  }
+]
