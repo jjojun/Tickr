@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { v4 as uuidv4 } from 'uuid'; // Import uuid
 
 const usersFilePath = path.resolve(process.cwd(), 'users.json');
 
@@ -21,6 +22,21 @@ const writeUsers = (users: any[]) => {
 export async function POST(request: Request) {
   const { username, password, email } = await request.json();
 
+  // 아이디 유효성 검사
+  const usernameRegex = /^(?=.*[a-zA-Z])[a-zA-Z0-9]+$/;
+  if (username.length > 10) {
+    return NextResponse.json({ message: '아이디는 10자 이내로 설정해주세요.' }, { status: 400 });
+  }
+  if (!usernameRegex.test(username)) {
+    return NextResponse.json({ message: '아이디는 영문자와 숫자로 구성되며, 최소 하나의 영문자를 포함해야 합니다.' }, { status: 400 });
+  }
+
+  // 비밀번호 유효성 검사
+  const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])(?=.*[0-9]).{8,}$/;
+  if (!passwordRegex.test(password)) {
+    return NextResponse.json({ message: '비밀번호는 8자 이상이어야 하며, 하나 이상의 대문자, 숫자, 특수문자를 포함해야 합니다.' }, { status: 400 });
+  }
+
   const users = readUsers();
 
   // Check if username or email already exists
@@ -33,7 +49,7 @@ export async function POST(request: Request) {
 
   // In a real app, you'd hash the password
   const hashedPassword = password; // Placeholder for actual hashing
-  const verificationToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  const verificationToken = uuidv4();
 
   const newUser = {
     id: users.length + 1,

@@ -44,6 +44,8 @@ export default function GroupsPage() {
   const [showDeleteGroupModal, setShowDeleteGroupModal] = useState(false);
   const [deleteGroupPassword, setDeleteGroupPassword] = useState('');
   const [joinGroupPassword, setJoinGroupPassword] = useState('');
+  const [showLeaveGroupModal, setShowLeaveGroupModal] = useState(false);
+  const [confirmGroupName, setConfirmGroupName] = useState('');
 
   // Helper to format duration
   const formatDuration = (seconds: number) => {
@@ -161,21 +163,37 @@ export default function GroupsPage() {
     }
   };
 
-  const handleLeaveGroup = async (groupId: string) => {
-    if (!userId) {
-      addToast('로그인이 필요합니다.', 'error');
+  const handleLeaveGroup = async () => {
+    if (!userGroup) {
+      addToast('탈퇴할 그룹 정보가 없습니다.', 'error');
       return;
     }
+    setShowLeaveGroupModal(true);
+  };
+
+  const confirmLeaveGroup = async () => {
+    if (!userId || !userGroup) {
+      addToast('로그인이 필요하거나 그룹 정보가 없습니다.', 'error');
+      return;
+    }
+
+    if (confirmGroupName !== userGroup.name) {
+      addToast('그룹 이름을 정확히 입력해주세요.', 'error');
+      return;
+    }
+
     try {
       const response = await fetch('/api/groups/leave', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ groupId, userId }),
+        body: JSON.stringify({ groupId: userGroup.id, userId }),
       });
       if (response.ok) {
         setUserGroup(null);
         setSelectedGroup(null);
         addToast('그룹을 성공적으로 탈퇴했습니다.', 'success');
+        setShowLeaveGroupModal(false);
+        setConfirmGroupName('');
         fetchGroupsData();
       } else {
         const errorData = await response.json();
@@ -299,7 +317,7 @@ export default function GroupsPage() {
 
           <div className="mt-6 flex justify-center space-x-4">
             <button
-              onClick={() => handleLeaveGroup(userGroup.id)}
+              onClick={handleLeaveGroup}
               className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200"
             >
               그룹 탈퇴하기
@@ -485,6 +503,45 @@ export default function GroupsPage() {
                 className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200"
               >
                 삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Leave Group Confirmation Modal */}
+      {showLeaveGroupModal && userGroup && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6">그룹 탈퇴 확인</h3>
+            <p className="text-gray-700 mb-4">정말로 <span className="font-semibold">{userGroup.name}</span> 그룹을 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
+            <p className="text-gray-700 mb-4">탈퇴하려면 그룹 이름을 정확히 입력해주세요: <span className="font-semibold text-blue-600">{userGroup.name}</span></p>
+            <div className="mb-4">
+              <label htmlFor="confirmGroupName" className="block text-gray-700 text-sm font-bold mb-2">그룹 이름:</label>
+              <input
+                type="text"
+                id="confirmGroupName"
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                value={confirmGroupName}
+                onChange={(e) => setConfirmGroupName(e.target.value)}
+                placeholder="그룹 이름을 입력하세요."
+              />
+            </div>
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={() => {
+                  setShowLeaveGroupModal(false);
+                  setConfirmGroupName('');
+                }}
+                className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-200"
+              >
+                취소
+              </button>
+              <button
+                onClick={confirmLeaveGroup}
+                className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200"
+              >
+                탈퇴
               </button>
             </div>
           </div>
