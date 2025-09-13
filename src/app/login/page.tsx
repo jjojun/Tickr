@@ -87,6 +87,11 @@ export default function LoginPage() {
           <p className="text-center text-gray-600 text-base mt-6">
             계정이 없으신가요? <a href="/signup" className="text-blue-600 hover:text-blue-800 font-medium">회원가입</a>
           </p>
+          <div className="text-center text-gray-600 text-base mt-4">
+            <a href="/find-id" className="text-blue-600 hover:text-blue-800 font-medium">아이디 찾기</a>
+            <span className="mx-2">|</span>
+            <a href="/find-password" className="text-blue-600 hover:text-blue-800 font-medium">비밀번호 찾기</a>
+          </div>
         </form>
       </div>
     </div>

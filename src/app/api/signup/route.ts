@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { v4 as uuidv4 } from 'uuid'; // Import uuid
+import { sendVerificationEmail } from '@/lib/email';
+import { getVerificationStores } from '@/lib/verificationStore';
+import bcrypt from 'bcrypt';
 
 const usersFilePath = path.resolve(process.cwd(), 'users.json');
 
@@ -24,8 +26,8 @@ export async function POST(request: Request) {
 
   // 아이디 유효성 검사
   const usernameRegex = /^(?=.*[a-zA-Z])[a-zA-Z0-9]+$/;
-  if (username.length > 10) {
-    return NextResponse.json({ message: '아이디는 10자 이내로 설정해주세요.' }, { status: 400 });
+  if (username.length > 15) {
+    return NextResponse.json({ message: '아이디는 15자 이내로 설정해주세요.' }, { status: 400 });
   }
   if (!usernameRegex.test(username)) {
     return NextResponse.json({ message: '아이디는 영문자와 숫자로 구성되며, 최소 하나의 영문자를 포함해야 합니다.' }, { status: 400 });
@@ -48,8 +50,7 @@ export async function POST(request: Request) {
   }
 
   // In a real app, you'd hash the password
-  const hashedPassword = password; // Placeholder for actual hashing
-  const verificationToken = uuidv4();
+  const hashedPassword = await bcrypt.hash(password, 10);
 
   const newUser = {
     id: users.length + 1,
@@ -57,19 +58,36 @@ export async function POST(request: Request) {
     password: hashedPassword,
     email,
     verified: false,
-    verificationToken,
   };
 
   users.push(newUser);
   writeUsers(users);
 
-  // Simulate sending email
-  console.log(`
-    --------------------------------------------------
-    이메일 인증 링크 (개발용 - 실제 이메일 발송 아님):
-    http://localhost:3000/verify?token=${verificationToken}
-    --------------------------------------------------
-  `);
+  const { signup: signupVerificationCodes } = getVerificationStores();
+  const newCode = Math.random().toString().slice(2, 8); // Generate 6-digit code
+  signupVerificationCodes.set(email, { code: newCode, timestamp: Date.now() });
 
-  return NextResponse.json({ message: '회원가입 성공! 이메일 인증을 완료해주세요.' }, { status: 200 });
+  const subject = '[Tickr] 회원가입 인증번호';
+  const text = `회원가입 인증번호는 ${newCode} 입니다. 3분 이내에 입력해주세요.`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+      <h2 style="color: #0056b3;">[Tickr] 회원가입 인증번호 안내</h2>
+      <p>안녕하세요,</p>
+      <p>회원가입을 완료하려면 다음 인증번호를 입력해주세요:</p>
+      <p style="font-size: 24px; font-weight: bold; color: #0056b3; background-color: #f0f0f0; padding: 10px; border-radius: 5px; display: inline-block;">
+        ${newCode}
+      </p>
+      <p>이 인증번호는 3분 이내에 입력해야 유효합니다.</p>
+      <p>감사합니다.<br/>Tickr 팀 드림</p>
+    </div>
+  `;
+
+  const emailResult = await sendVerificationEmail(email, subject, text, html);
+
+  if (!emailResult.success) {
+    console.error('Failed to send verification email:', emailResult.error);
+    return NextResponse.json({ message: '회원가입은 성공했지만, 인증 이메일 전송에 실패했습니다.' }, { status: 500 });
+  }
+
+  return NextResponse.json({ message: '회원가입 성공! 이메일로 전송된 인증번호를 입력해주세요.' }, { status: 200 });
 }

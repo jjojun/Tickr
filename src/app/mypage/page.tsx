@@ -30,11 +30,19 @@ export default function MyPage() {
 
   // Profile Update States
   const [newEmail, setNewEmail] = useState('');
+  const [emailChangeStep, setEmailChangeStep] = useState('form'); // 'form', 'verifyCode'
+  const [emailVerificationCode, setEmailVerificationCode] = useState('');
+  const [emailTimer, setEmailTimer] = useState(180);
+  const [isEmailTimerRunning, setIsEmailTimerRunning] = useState(false);
 
   // Password Change States
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passwordChangeStep, setPasswordChangeStep] = useState('form'); // 'form', 'verifyCode'
+  const [passwordVerificationCode, setPasswordVerificationCode] = useState('');
+  const [passwordTimer, setPasswordTimer] = useState(180);
+  const [isPasswordTimerRunning, setIsPasswordTimerRunning] = useState(false);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('loggedInUser');
@@ -46,6 +54,30 @@ export default function MyPage() {
       router.push('/login');
     }
   }, [router]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isEmailTimerRunning && emailTimer > 0) {
+      interval = setInterval(() => {
+        setEmailTimer((prevTimer) => prevTimer - 1);
+      }, 1000);
+    } else if (emailTimer === 0) {
+      setIsEmailTimerRunning(false);
+    }
+    return () => clearInterval(interval);
+  }, [isEmailTimerRunning, emailTimer]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isPasswordTimerRunning && passwordTimer > 0) {
+      interval = setInterval(() => {
+        setPasswordTimer((prevTimer) => prevTimer - 1);
+      }, 1000);
+    } else if (passwordTimer === 0) {
+      setIsPasswordTimerRunning(false);
+    }
+    return () => clearInterval(interval);
+  }, [isPasswordTimerRunning, passwordTimer]);
 
   useEffect(() => {
     let total = 0;
@@ -62,6 +94,8 @@ export default function MyPage() {
     e.preventDefault();
     if (!user) return;
 
+    setEmailChangeStep('form'); // Reset step on new attempt
+
     try {
       const response = await fetch('/api/user/profile', {
         method: 'PUT',
@@ -74,14 +108,78 @@ export default function MyPage() {
       const data = await response.json();
 
       if (response.ok) {
-        addToast(data.message || '프로필이 성공적으로 업데이트되었습니다.', 'success');
+        setEmailChangeStep('verifyCode');
+        setEmailTimer(180);
+        setIsEmailTimerRunning(true);
+        addToast(data.message || '새 이메일로 인증번호가 발송되었습니다. 확인해주세요.', 'success');
+      } else {
+        addToast(data.message || '이메일 변경 요청에 실패했습니다.', 'error');
+      }
+    } catch (error) {
+      addToast('네트워크 오류 또는 서버 문제.', 'error');
+    }
+  };
+
+  const handleVerifyEmailChangeCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    if (!emailVerificationCode) {
+      addToast('인증번호를 입력해주세요.', 'error');
+      return;
+    }
+    addToast('이메일 인증번호 확인 중...', 'info');
+
+    try {
+      const response = await fetch('/api/verify-email-change', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: newEmail, code: emailVerificationCode }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setIsEmailTimerRunning(false);
+        addToast(data.message || '이메일이 성공적으로 변경되었습니다!', 'success');
         const updatedUser = { ...user, email: newEmail };
         setUser(updatedUser);
         localStorage.setItem('loggedInUser', JSON.stringify(updatedUser));
+        setEmailChangeStep('form'); // Go back to form after successful verification
+        setEmailVerificationCode(''); // Clear code
       } else {
-        addToast(data.message || '프로필 업데이트에 실패했습니다.', 'error');
+        addToast(data.message || '이메일 인증번호 확인 실패.', 'error');
       }
     } catch (error) {
+      console.error('Email verification error:', error);
+      addToast('네트워크 오류 또는 서버 문제.', 'error');
+    }
+  };
+
+  const handleResendEmailCode = async () => {
+    if (!user) return;
+    addToast('이메일 인증번호 재전송 요청 중...', 'info');
+    try {
+      const response = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: user.id, email: newEmail }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setEmailTimer(180);
+        setIsEmailTimerRunning(true);
+        addToast(data.message || '새 인증번호가 전송되었습니다.', 'success');
+      } else {
+        addToast(data.message || '인증번호 재전송 실패.', 'error');
+      }
+    } catch (error) {
+      console.error('Resend email code error:', error);
       addToast('네트워크 오류 또는 서버 문제.', 'error');
     }
   };
@@ -89,6 +187,8 @@ export default function MyPage() {
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+
+    setPasswordChangeStep('form'); // Reset step on new attempt
 
     if (newPassword !== confirmNewPassword) {
       addToast('새 비밀번호가 일치하지 않습니다.', 'error');
@@ -107,14 +207,78 @@ export default function MyPage() {
       const data = await response.json();
 
       if (response.ok) {
+        setPasswordChangeStep('verifyCode');
+        setPasswordTimer(180);
+        setIsPasswordTimerRunning(true);
+        addToast(data.message || '비밀번호 변경 인증번호가 이메일로 발송되었습니다. 확인해주세요.', 'success');
+      } else {
+        addToast(data.message || '비밀번호 변경 요청에 실패했습니다.', 'error');
+      }
+    } catch (error) {
+      addToast('네트워크 오류 또는 서버 문제.', 'error');
+    }
+  };
+
+  const handleVerifyPasswordChangeCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    if (!passwordVerificationCode) {
+      addToast('인증번호를 입력해주세요.', 'error');
+      return;
+    }
+    addToast('비밀번호 인증번호 확인 중...', 'info');
+
+    try {
+      const response = await fetch('/api/verify-password-change', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: user.id, code: passwordVerificationCode }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setIsPasswordTimerRunning(false);
         addToast(data.message || '비밀번호가 성공적으로 변경되었습니다.', 'success');
         setCurrentPassword('');
         setNewPassword('');
         setConfirmNewPassword('');
+        setPasswordChangeStep('form'); // Go back to form after successful verification
+        setPasswordVerificationCode(''); // Clear code
       } else {
-        addToast(data.message || '비밀번호 변경에 실패했습니다.', 'error');
+        addToast(data.message || '비밀번호 인증번호 확인 실패.', 'error');
       }
     } catch (error) {
+      console.error('Password verification error:', error);
+      addToast('네트워크 오류 또는 서버 문제.', 'error');
+    }
+  };
+
+  const handleResendPasswordCode = async () => {
+    if (!user) return;
+    addToast('비밀번호 인증번호 재전송 요청 중...', 'info');
+    try {
+      const response = await fetch('/api/user/password', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: user.id, currentPassword, newPassword }), // Re-send data to get new code
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setPasswordTimer(180);
+        setIsPasswordTimerRunning(true);
+        addToast(data.message || '새 인증번호가 전송되었습니다.', 'success');
+      } else {
+        addToast(data.message || '인증번호 재전송 실패.', 'error');
+      }
+    } catch (error) {
+      console.error('Resend password code error:', error);
       addToast('네트워크 오류 또는 서버 문제.', 'error');
     }
   };
@@ -149,6 +313,12 @@ export default function MyPage() {
     router.push('/login');
   };
 
+  const formatVerificationTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -180,82 +350,162 @@ export default function MyPage() {
 
         <div className="mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
           <h3 className="text-2xl font-bold text-gray-700 mb-4">프로필 수정</h3>
-          <form onSubmit={handleProfileUpdate}>
-            <div className="mb-4">
-              <label htmlFor="newEmail" className="block text-gray-700 text-base font-medium mb-2">
-                새 이메일
-              </label>
-              <input
-                type="email"
-                id="newEmail"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 text-gray-900"
-                placeholder="새 이메일을 입력하세요"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200"
-            >
-              이메일 변경
-            </button>
-          </form>
+          {emailChangeStep === 'form' && (
+            <form onSubmit={handleProfileUpdate}>
+              <div className="mb-4">
+                <label htmlFor="newEmail" className="block text-gray-700 text-base font-medium mb-2">
+                  새 이메일
+                </label>
+                <input
+                  type="email"
+                  id="newEmail"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 text-gray-900"
+                  placeholder="새 이메일을 입력하세요"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200"
+              >
+                이메일 변경
+              </button>
+            </form>
+          )}
+
+          {emailChangeStep === 'verifyCode' && (
+            <form onSubmit={handleVerifyEmailChangeCode}>
+              <p className="text-center text-gray-700 mb-4">새 이메일로 인증번호가 전송되었습니다. 3분 이내에 입력해주세요.</p>
+              <div className="mb-5">
+                <label htmlFor="emailVerificationCode" className="block text-gray-700 text-base font-medium mb-2">
+                  인증번호
+                </label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    id="emailVerificationCode"
+                    className="w-full px-4 py-3 border border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 placeholder:text-gray-600 text-gray-900 text-lg"
+                    placeholder="인증번호 6자리를 입력하세요"
+                    value={emailVerificationCode}
+                    onChange={(e) => setEmailVerificationCode(e.target.value)}
+                    required
+                  />
+                  {isEmailTimerRunning && <span className="text-gray-500 w-20 text-center">{formatVerificationTime(emailTimer)}</span>}
+                  {!isEmailTimerRunning && emailTimer === 0 && (
+                    <button
+                      type="button"
+                      onClick={handleResendEmailCode}
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200 text-sm whitespace-nowrap"
+                    >
+                      재전송
+                    </button>
+                  )}
+                </div>
+              </div>
+              <button
+                type="submit"
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition duration-200"
+              >
+                인증번호 확인
+              </button>
+            </form>
+          )}
         </div>
 
         <div className="mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
           <h3 className="text-2xl font-bold text-gray-700 mb-4">비밀번호 변경</h3>
-          <form onSubmit={handlePasswordChange}>
-            <div className="mb-4">
-              <label htmlFor="currentPassword" className="block text-gray-700 text-base font-medium mb-2">
-                현재 비밀번호
-              </label>
-              <input
-                type="password"
-                id="currentPassword"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 text-gray-900"
-                placeholder="현재 비밀번호를 입력하세요"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                required
-              />
-            </div>
-            <div className="mb-4">
-              <label htmlFor="newPassword" className="block text-gray-700 text-base font-medium mb-2">
-                새 비밀번호
-              </label>
-              <input
-                type="password"
-                id="newPassword"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 text-gray-900"
-                placeholder="새 비밀번호를 입력하세요"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-              />
-            </div>
-            <div className="mb-4">
-              <label htmlFor="confirmNewPassword" className="block text-gray-700 text-base font-medium mb-2">
-                새 비밀번호 확인
-              </label>
-              <input
-                type="password"
-                id="confirmNewPassword"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 text-gray-900"
-                placeholder="새 비밀번호를 다시 입력하세요"
-                value={confirmNewPassword}
-                onChange={(e) => setConfirmNewPassword(e.target.value)}
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200"
-            >
-              비밀번호 변경
-            </button>
-          </form>
+          {passwordChangeStep === 'form' && (
+            <form onSubmit={handlePasswordChange}>
+              <div className="mb-4">
+                <label htmlFor="currentPassword" className="block text-gray-700 text-base font-medium mb-2">
+                  현재 비밀번호
+                </label>
+                <input
+                  type="password"
+                  id="currentPassword"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 text-gray-900"
+                  placeholder="현재 비밀번호를 입력하세요"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label htmlFor="newPassword" className="block text-gray-700 text-base font-medium mb-2">
+                  새 비밀번호
+                </label>
+                <input
+                  type="password"
+                  id="newPassword"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 text-gray-900"
+                  placeholder="새 비밀번호를 입력하세요"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label htmlFor="confirmNewPassword" className="block text-gray-700 text-base font-medium mb-2">
+                  새 비밀번호 확인
+                </label>
+                <input
+                  type="password"
+                  id="confirmNewPassword"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 text-gray-900"
+                  placeholder="새 비밀번호를 다시 입력하세요"
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200"
+              >
+                비밀번호 변경
+              </button>
+            </form>
+          )}
+
+          {passwordChangeStep === 'verifyCode' && (
+            <form onSubmit={handleVerifyPasswordChangeCode}>
+              <p className="text-center text-gray-700 mb-4">비밀번호 변경 인증번호가 이메일로 발송되었습니다. 3분 이내에 입력해주세요.</p>
+              <div className="mb-5">
+                <label htmlFor="passwordVerificationCode" className="block text-gray-700 text-base font-medium mb-2">
+                  인증번호
+                </label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    id="passwordVerificationCode"
+                    className="w-full px-4 py-3 border border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 placeholder:text-gray-600 text-gray-900 text-lg"
+                    placeholder="인증번호 6자리를 입력하세요"
+                    value={passwordVerificationCode}
+                    onChange={(e) => setPasswordVerificationCode(e.target.value)}
+                    required
+                  />
+                  {isPasswordTimerRunning && <span className="text-gray-500 w-20 text-center">{formatVerificationTime(passwordTimer)}</span>}
+                  {!isPasswordTimerRunning && passwordTimer === 0 && (
+                    <button
+                      type="button"
+                      onClick={handleResendPasswordCode}
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200 text-sm whitespace-nowrap"
+                    >
+                      재전송
+                    </button>
+                  )}
+                </div>
+              </div>
+              <button
+                type="submit"
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition duration-200"
+              >
+                인증번호 확인
+              </button>
+            </form>
+          )}
         </div>
 
         <div className="mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
