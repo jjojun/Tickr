@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
+import bcrypt from 'bcrypt';
 
 const usersFilePath = path.resolve(process.cwd(), 'users.json');
 
@@ -64,7 +65,8 @@ export async function DELETE(request: Request) {
     const userToDelete = users[userIndex];
 
     // In a real app, you'd compare hashed passwords
-    if (userToDelete.password !== password) { // Placeholder for actual hashing comparison
+    const isPasswordValid = await bcrypt.compare(password, userToDelete.password);
+    if (!isPasswordValid) { // Placeholder for actual hashing comparison
       return NextResponse.json({ message: '비밀번호가 일치하지 않습니다.' }, { status: 401 });
     }
 

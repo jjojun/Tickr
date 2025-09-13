@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import bcrypt from 'bcrypt';
 
 const usersFilePath = path.resolve(process.cwd(), 'users.json');
 
@@ -25,7 +26,8 @@ export async function POST(request: Request) {
   }
 
   // In a real app, you'd compare hashed passwords
-  if (user.password !== password) { // Placeholder for actual hashing comparison
+  const isPasswordValid = await bcrypt.compare(password, user.password);
+  if (!isPasswordValid) { // Placeholder for actual hashing comparison
     return NextResponse.json({ message: '아이디 또는 비밀번호가 올바르지 않습니다.' }, { status: 401 });
   }
 

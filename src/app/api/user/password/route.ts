@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { v4 as uuidv4 } from 'uuid'; // Import uuid
+import { sendVerificationEmail } from '@/lib/email';
+import { getVerificationStores } from '@/lib/verificationStore';
+import bcrypt from 'bcrypt';
 
 const usersFilePath = path.resolve(process.cwd(), 'users.json');
 
@@ -33,8 +35,9 @@ export async function PUT(request: Request) {
     return NextResponse.json({ message: 'User not found.' }, { status: 404 });
   }
 
-  // In a real app, you'd compare hashed passwords
-  if (users[userIndex].password !== currentPassword) { // Placeholder for actual hashing comparison
+  // Compare current password with hashed password
+  const isCurrentPasswordValid = await bcrypt.compare(currentPassword, users[userIndex].password);
+  if (!isCurrentPasswordValid) {
     return NextResponse.json({ message: '현재 비밀번호가 올바르지 않습니다.' }, { status: 401 });
   }
 
@@ -49,18 +52,36 @@ export async function PUT(request: Request) {
     return NextResponse.json({ message: '새 비밀번호는 8자 이상이어야 하며, 하나 이상의 대문자, 숫자, 특수문자를 포함해야 합니다.' }, { status: 400 });
   }
 
-  const passwordVerificationToken = uuidv4();
-  users[userIndex].pendingPassword = newPassword;
-  users[userIndex].passwordVerificationToken = passwordVerificationToken;
+  const newCode = Math.random().toString().slice(2, 8); // Generate 6-digit code
+  const { passwordChange: passwordChangeVerificationCodes } = getVerificationStores();
+  passwordChangeVerificationCodes.set(userId, { code: newCode, timestamp: Date.now() });
+
+  const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+  users[userIndex].pendingPassword = hashedNewPassword;
+  // users[userIndex].passwordVerificationToken = undefined; // No longer needed
   writeUsers(users);
 
-  // Simulate sending email
-  console.log(`
-    --------------------------------------------------
-    비밀번호 변경 인증 링크 (개발용 - 실제 이메일 발송 아님):
-    http://localhost:3000/verify-password-change?token=${passwordVerificationToken}
-    --------------------------------------------------
-  `);
+  const subject = '[Tickr] 비밀번호 변경 인증번호';
+  const text = `비밀번호 변경 인증번호는 ${newCode} 입니다. 3분 이내에 입력해주세요.`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+      <h2 style="color: #0056b3;">[Tickr] 비밀번호 변경 인증번호 안내</h2>
+      <p>안녕하세요,</p>
+      <p>요청하신 비밀번호 변경 인증번호는 다음과 같습니다:</p>
+      <p style="font-size: 24px; font-weight: bold; color: #0056b3; background-color: #f0f0f0; padding: 10px; border-radius: 5px; display: inline-block;">
+        ${newCode}
+      </p>
+      <p>이 인증번호는 3분 이내에 입력해야 유효합니다.</p>
+      <p>감사합니다.<br/>Tickr 팀 드림</p>
+    </div>
+  `;
 
-  return NextResponse.json({ message: '비밀번호 변경 인증 링크가 이메일로 발송되었습니다. 확인해주세요.' }, { status: 200 });
+  const emailResult = await sendVerificationEmail(users[userIndex].email, subject, text, html);
+
+  if (!emailResult.success) {
+    console.error('Failed to send password change verification email:', emailResult.error);
+    return NextResponse.json({ message: '비밀번호 변경 인증 이메일 전송에 실패했습니다.' }, { status: 500 });
+  }
+
+  return NextResponse.json({ message: '비밀번호 변경 인증번호가 이메일로 발송되었습니다. 확인해주세요.' }, { status: 200 });
 }
